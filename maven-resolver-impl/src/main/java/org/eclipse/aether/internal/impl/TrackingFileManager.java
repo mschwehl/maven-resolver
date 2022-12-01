@@ -25,13 +25,14 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
-
 /**
  * Manages access to a properties file.
  */
@@ -40,6 +41,10 @@ class TrackingFileManager
 
     private static final Logger LOGGER = LoggerFactory.getLogger( TrackingFileManager.class );
 
+    private static final int TIME = 300;
+    private static boolean patchedShown = false;
+        
+    /*
     public Properties read( File file )
     {
         FileInputStream stream = null;
@@ -68,6 +73,57 @@ class TrackingFileManager
 
         return null;
     }
+    */
+    
+    public Properties read( File file )
+    {
+        
+        if ( !patchedShown ) 
+        {
+            LOGGER.info( "USING PATCHED VERSION OF TrackingFileManager for BAMF-Jenkins" );
+            patchedShown = true;
+        }
+        
+                    
+        Path filePath = file.toPath();
+        if ( Files.isRegularFile( filePath ) )
+        {
+            try ( InputStream stream = Files.newInputStream( filePath ) )
+            {
+                Properties props = new Properties();
+                props.load( stream );
+                return props;
+            }
+            catch ( IOException e )
+            {
+                LOGGER.warn( "(PATCHED) Failed to read tracking file, retry '{}'", file, e );
+            }
+            
+            try 
+            {
+                Thread.sleep( TIME );
+            } 
+            catch ( Exception e ) 
+            {
+                LOGGER.warn( "Thread-Exception " + e );
+            }
+            
+            try ( InputStream stream = Files.newInputStream( filePath ) )
+            {
+                Properties props = new Properties();
+                props.load( stream );
+                return props;
+            }
+            catch ( IOException e )
+            {
+                LOGGER.warn( "(PATCHED,NOT-RESOLVABLE) Failed to read tracking file '{}'", file, e );
+            }
+            
+            
+        }
+        return null;
+    }
+        
 
     public Properties update( File file, Map<String, String> updates )
     {
